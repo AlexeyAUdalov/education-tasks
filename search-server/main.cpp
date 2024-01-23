@@ -251,6 +251,51 @@ private:
 
 // -------- Начало модульных тестов поисковой системы ----------
 
+template <typename T>
+ostream& operator<<(ostream& output, const vector<T>& items) {
+    output << "["s;
+    bool first_item = true;
+    for (const T& item : items) {
+        if (!first_item) {
+            output << ", "s;
+        }
+        output << item;
+        first_item = false;
+    }
+    output << "]"s;
+    return output;
+}
+
+template <typename T>
+ostream& operator<<(ostream& output, const set<T>& items) {
+    output << "{"s;
+    bool first_item = true;
+    for (const T& item : items) {
+        if (!first_item) {
+            output << ", "s;
+        }
+        output << item;
+        first_item = false;
+    }
+    output << "}"s;
+    return output;
+}
+
+template <typename K, typename V>
+ostream& operator<<(ostream& output, const map<K, V>& items) {
+    output << "{"s;
+    bool first_item = true;
+    for (const auto& [key, value] : items) {
+        if (!first_item) {
+            output << ", "s;
+        }
+        output << key << ": "s << value;
+        first_item = false;
+    }
+    output << "}"s;
+    return output;
+}
+
 template <typename T, typename U>
 void AssertEqualImpl(const T& t, const U& u, const string& t_str, const string& u_str, const string& file,
     const string& func, unsigned line, const string& hint) {
@@ -307,50 +352,6 @@ void TestExcludeStopWordsFromAddedDocumentContent() {
 Разместите код остальных тестов здесь
 */
 
-template <typename T>
-ostream& operator<<(ostream& output, const vector<T>& items) {
-    output << "["s;
-    bool first_item = true;
-    for (const T& item : items) {
-        if (!first_item) {
-            output << ", "s;
-        }
-        output << item;
-        first_item = false;
-    }
-    output << "]"s;
-    return output;
-}
-
-template <typename T>
-ostream& operator<<(ostream& output, const set<T>& items) {
-    output << "{"s;
-    bool first_item = true;
-    for (const T& item : items) {
-        if (!first_item) {
-            output << ", "s;
-        }
-        output << item;
-        first_item = false;
-    }
-    output << "}"s;
-    return output;
-}
-
-template <typename K, typename V>
-ostream& operator<<(ostream& output, const map<K, V>& items) {
-    output << "{"s;
-    bool first_item = true;
-    for (const auto& [key, value] : items) {
-        if (!first_item) {
-            output << ", "s;
-        }
-        output << key << ": "s << value;
-        first_item = false;
-    }
-    output << "}"s;
-    return output;
-}
 
 // Добавление документов. 
 // Добавленный документ должен находиться по поисковому запросу, который содержит слова из документа.
@@ -902,10 +903,134 @@ void TestRelevanceCalculation() {
     }
 }
 
+//Проверка статуса документа возвращаемого MatchDocument
+void TestMatchDocumentStatus() {
+    const string stop_words = "is are was a an in the with near at"s;
 
+    const int doc_id_0 = 0;
+    const string content_0 = "a colorful parrot with green wings and red tail is lost"s;
+    const vector<int> ratings_0 = { 2, -5, -4, 6, 3 };
+    const DocumentStatus status_0 = DocumentStatus::ACTUAL;
 
+    const int doc_id_5 = 5;
+    const string content_5 = "a white cat with long furry tail is found near the red square"s;
+    const vector<int> ratings_5 = { -3, 3, 2, -6 };
+    const DocumentStatus status_5 = DocumentStatus::BANNED;
 
+    const int doc_id_1 = 1;
+    const string content_1 = "a grey hound with black ears is found at the railway station"s;
+    const vector<int> ratings_1 = { 7, 9 };
+    const DocumentStatus status_1 = DocumentStatus::REMOVED;
 
+    const int doc_id_38 = 38;
+    const string content_38 = "cat in the city"s;
+    const vector<int> ratings_38 = { 5, 1 };
+    const DocumentStatus status_38 = DocumentStatus::IRRELEVANT;
+
+    {
+        SearchServer server;
+        server.SetStopWords("is are was a an in the with near at"s);
+        server.AddDocument(doc_id_0, content_0, status_0, ratings_0);
+        server.AddDocument(doc_id_5, content_5, status_5, ratings_5);
+        server.AddDocument(doc_id_1, content_1, status_1, ratings_1);
+        server.AddDocument(doc_id_38, content_38, status_38, ratings_38);
+        auto [matched_words, status] = server.MatchDocument("green cat long tail red"s, doc_id_0);
+
+        string hint = "document_id="s + to_string(doc_id_0) + " is in status=" + to_string(static_cast<int>(status)) +
+            + " instead of status=" + to_string(static_cast<int>(status_0));
+        ASSERT_EQUAL_HINT(static_cast<int>(status), static_cast<int>(status_0), hint);
+
+        const unsigned words_count = 3u;
+        hint = "must be found " + to_string(words_count) + " words insted of "s + to_string(matched_words.size()) + " words";
+        ASSERT_EQUAL_HINT(matched_words.size(), words_count, hint);        
+    }
+
+    {
+        SearchServer server;
+        server.SetStopWords("is are was a an in the with near at"s);
+        server.AddDocument(doc_id_0, content_0, status_0, ratings_0);
+        server.AddDocument(doc_id_5, content_5, status_5, ratings_5);
+        server.AddDocument(doc_id_1, content_1, status_1, ratings_1);
+        server.AddDocument(doc_id_38, content_38, status_38, ratings_38);
+        auto [matched_words, status] = server.MatchDocument("green cat long tail grey"s, doc_id_5);
+
+        string hint = "document_id="s + to_string(doc_id_0) + " is in status=" + to_string(static_cast<int>(status)) +
+            +" instead of status=" + to_string(static_cast<int>(status_5));
+        ASSERT_EQUAL_HINT(static_cast<int>(status), static_cast<int>(status_5), hint);
+
+        const unsigned words_count = 3u;
+        hint = "must be found " + to_string(words_count) + " words insted of "s + to_string(matched_words.size()) + " words";
+        ASSERT_EQUAL_HINT(matched_words.size(), words_count, hint);
+    }
+
+    {
+        SearchServer server;
+        server.SetStopWords("is are was a an in the with near at"s);
+        server.AddDocument(doc_id_0, content_0, status_0, ratings_0);
+        server.AddDocument(doc_id_5, content_5, status_5, ratings_5);
+        server.AddDocument(doc_id_1, content_1, status_1, ratings_1);
+        server.AddDocument(doc_id_38, content_38, status_38, ratings_38);
+        auto [matched_words, status] = server.MatchDocument("grey cat long tail red"s, doc_id_1);
+
+        string hint = "document_id="s + to_string(doc_id_1) + " is in status=" + to_string(static_cast<int>(status)) +
+            +" instead of status=" + to_string(static_cast<int>(status_1));
+        ASSERT_EQUAL_HINT(static_cast<int>(status), static_cast<int>(status_1), hint);
+
+        const unsigned words_count = 1u;
+        hint = "must be found " + to_string(words_count) + " words insted of "s + to_string(matched_words.size()) + " words";
+        ASSERT_EQUAL_HINT(matched_words.size(), words_count, hint);
+    }
+
+    {
+        SearchServer server;
+        server.SetStopWords("is are was a an in the with near at"s);
+        server.AddDocument(doc_id_0, content_0, status_0, ratings_0);
+        server.AddDocument(doc_id_5, content_5, status_5, ratings_5);
+        server.AddDocument(doc_id_1, content_1, status_1, ratings_1);
+        server.AddDocument(doc_id_38, content_38, status_38, ratings_38);
+        auto [matched_words, status] = server.MatchDocument("grey cat long tail city"s, doc_id_38);
+
+        string hint = "document_id="s + to_string(doc_id_38) + " is in status=" + to_string(static_cast<int>(status)) +
+            +" instead of status=" + to_string(static_cast<int>(status_38));
+        ASSERT_EQUAL_HINT(static_cast<int>(status), static_cast<int>(status_38), hint);
+
+        const unsigned words_count = 2u;
+        hint = "must be found " + to_string(words_count) + " words insted of "s + to_string(matched_words.size()) + " words";
+        ASSERT_EQUAL_HINT(matched_words.size(), words_count, hint);
+    }   
+}
+
+//Проверка найденных слов функцией MatchDocument в докумете 
+void TestMatchDocumentWords() {
+    const string stop_words = "is are was a an in the with near at"s;
+
+    const int doc_id_0 = 0;
+    const string content_0 = "a colorful parrot with green wings and red tail is lost"s;
+    const vector<int> ratings_0 = { 2, -5, -4, 6, 3 };
+    const DocumentStatus status_0 = DocumentStatus::ACTUAL;
+    const vector<string> words = { "and"s, "colorful"s, "green"s, "lost"s, "parrot"s, "red"s, "tail"s, "wings"s };
+
+    {
+        SearchServer server;
+        server.SetStopWords("is are was a an in the with near at"s);
+        server.AddDocument(doc_id_0, content_0, status_0, ratings_0);
+        auto [matched_words, status] = server.MatchDocument("a colorful parrot with green wings and red tail is lost"s, doc_id_0);
+
+        const string hint = "wrond words were found";
+        ASSERT_EQUAL_HINT(matched_words, words, hint);
+    }
+
+    {
+        SearchServer server;
+        server.SetStopWords("is are was a an in the with near at"s);
+        server.AddDocument(doc_id_0, content_0, status_0, ratings_0);
+        auto [matched_words, status] = server.MatchDocument("a colorful parrot with green wings and -red tail is lost"s, doc_id_0);
+
+        const unsigned words_count = 3u;
+        const string hint = "list of found words is not empty";
+        ASSERT_HINT(static_cast<int>(matched_words.size()) == 0, hint);
+    }
+}
 
 template <typename TestFunc>
 void RunTestImpl(const TestFunc& func, const string& test_name) {
@@ -926,6 +1051,8 @@ void TestSearchServer() {
     RUN_TEST(TestPredicate);
     RUN_TEST(TestSearchingByStatus);
     RUN_TEST(TestRelevanceCalculation);
+    RUN_TEST(TestMatchDocumentStatus);
+    RUN_TEST(TestMatchDocumentWords);
 }
 
 // --------- Окончание модульных тестов поисковой системы -----------
