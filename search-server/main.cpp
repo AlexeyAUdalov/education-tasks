@@ -242,88 +242,10 @@ private:
    Подставьте сюда вашу реализацию макросов
    ASSERT, ASSERT_EQUAL, ASSERT_EQUAL_HINT, ASSERT_HINT и RUN_TEST
 */
-#define ASSERT_EQUAL(a, b) AssertEqualImpl((a), (b), #a, #b, __FILE__, __FUNCTION__, __LINE__, ""s)
-#define ASSERT_EQUAL_HINT(a, b, hint) AssertEqualImpl((a), (b), #a, #b, __FILE__, __FUNCTION__, __LINE__, (hint))
-#define ASSERT(a) AssertImpl((a), #a, __FILE__, __FUNCTION__, __LINE__, ""s)
-#define ASSERT_HINT(a, hint) AssertImpl((a), #a, __FILE__, __FUNCTION__, __LINE__, (hint))
-#define RUN_TEST(func) RunTestImpl(func, #func)
 
 
 // -------- Начало модульных тестов поисковой системы ----------
 
-template <typename T>
-ostream& operator<<(ostream& output, const vector<T>& items) {
-    output << "["s;
-    bool first_item = true;
-    for (const T& item : items) {
-        if (!first_item) {
-            output << ", "s;
-        }
-        output << item;
-        first_item = false;
-    }
-    output << "]"s;
-    return output;
-}
-
-template <typename T>
-ostream& operator<<(ostream& output, const set<T>& items) {
-    output << "{"s;
-    bool first_item = true;
-    for (const T& item : items) {
-        if (!first_item) {
-            output << ", "s;
-        }
-        output << item;
-        first_item = false;
-    }
-    output << "}"s;
-    return output;
-}
-
-template <typename K, typename V>
-ostream& operator<<(ostream& output, const map<K, V>& items) {
-    output << "{"s;
-    bool first_item = true;
-    for (const auto& [key, value] : items) {
-        if (!first_item) {
-            output << ", "s;
-        }
-        output << key << ": "s << value;
-        first_item = false;
-    }
-    output << "}"s;
-    return output;
-}
-
-template <typename T, typename U>
-void AssertEqualImpl(const T& t, const U& u, const string& t_str, const string& u_str, const string& file,
-    const string& func, unsigned line, const string& hint) {
-    if (t != u) {
-        cerr << boolalpha;
-        cerr << file << "("s << line << "): "s << func << ": "s;
-        cerr << "ASSERT_EQUAL("s << t_str << ", "s << u_str << ") failed: "s;
-        cerr << t << " != "s << u << "."s;
-        if (!hint.empty()) {
-            cerr << " Hint: "s << hint;
-        }
-        cerr << endl;
-        abort();
-    }
-}
-
-void AssertImpl(bool value, const string& expr_str, const string& file, const string& func, unsigned line,
-    const string& hint) {
-    if (!value) {
-        cerr << file << "("s << line << "): "s << func << ": "s;
-        cerr << "Assert("s << expr_str << ") failed."s;
-        if (!hint.empty()) {
-            cerr << " Hint: "s << hint;
-        }
-        cerr << endl;
-        abort();
-    }
-}
 
 // Тест проверяет, что поисковая система исключает стоп-слова при добавлении документов
 void TestExcludeStopWordsFromAddedDocumentContent() {
@@ -362,7 +284,6 @@ void TestAddDocumentAndFindAddedDocument() {
     const vector<int> ratings = { 0, 5, 2 };
     {
         SearchServer server;
-        DocumentStatus status = DocumentStatus::ACTUAL;
         server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
         for (const auto& word : content_words) {
             const auto found_docs = server.FindTopDocuments(word);
@@ -383,7 +304,6 @@ void TestAddDocumentAndFindAddedDocument() {
 
     {
         SearchServer server;
-        DocumentStatus status = DocumentStatus::ACTUAL;
         server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
         server.AddDocument(doc_id_2, content_2, DocumentStatus::ACTUAL, ratings_2);
         for (const auto& word : content_words) {
@@ -650,12 +570,10 @@ void TestPredicate() {
     const int doc_id_0 = 0;
     const string content_0 = "a colorful parrot with green wings and red tail is lost"s;
     const vector<int> ratings_0 = { 2, -5, -4, 6, 3 };
-    const int calculate_rating_0 = 0;
 
     const int doc_id_5 = 5;
     const string content_5 = "a white cat with long furry tail is found near the red square"s;
     const vector<int> ratings_5 = { -3, 3, 2, -6 };
-    const int calculate_rating_5 = -1;
 
     const int doc_id_1 = 1;
     const string content_1 = "a grey hound with black ears is found at the railway station"s;
@@ -1026,18 +944,10 @@ void TestMatchDocumentWords() {
         server.AddDocument(doc_id_0, content_0, status_0, ratings_0);
         auto [matched_words, status] = server.MatchDocument("a colorful parrot with green wings and -red tail is lost"s, doc_id_0);
 
-        const unsigned words_count = 3u;
         const string hint = "list of found words is not empty";
         ASSERT_HINT(static_cast<int>(matched_words.size()) == 0, hint);
     }
 }
-
-template <typename TestFunc>
-void RunTestImpl(const TestFunc& func, const string& test_name) {
-    func();
-    cerr << test_name << " OK"s << endl;
-}
-
 
 // Функция TestSearchServer является точкой входа для запуска тестов
 void TestSearchServer() {
